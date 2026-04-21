@@ -369,18 +369,20 @@ function getParams() {
     };
 }
 
-function computePInfinity(p) {
+function computeFixedPoints(p) {
     const { a, h, q, r } = p;
     if (h === 0) {
-        // No observation: P_p(k+1) = a²P + q — diverges unless |a| < 1
-        return Math.abs(a) < 1 ? q / (1 - a * a) : Infinity;
+        const stable = Math.abs(a) < 1 ? q / (1 - a * a) : Infinity;
+        return { stable, unstable: null };
     }
     // Solve fixed point h²P² + [r(1−a²) − qh²]P − qr = 0 analytically.
-    // Discriminant = B² + 4h²qr ≥ 0 always; positive root always exists.
     const A = h * h;
     const B = r * (1 - a * a) - q * h * h;
     const disc = B * B + 4 * A * q * r;
-    return (-B + Math.sqrt(disc)) / (2 * A);
+    const stable = (-B + Math.sqrt(disc)) / (2 * A);
+    // When q=0 and |a|>1: P=0 is a second fixed point, unstable (slope of f at 0 is a²>1).
+    const unstable = (q === 0 && Math.abs(a) > 1) ? 0 : null;
+    return { stable, unstable };
 }
 
 function snapToOne(val) {
@@ -393,7 +395,7 @@ const windowSize = 100;
 const LOCK_IDS   = ['a', 'h', 'q', 'r', 'p0'];
 
 let isPlaying = false, rafId = null, lastRafTime = null, stepElapsed = 0;
-let currentK = 1, x_true = 0, x_hat_p = 0, P_p = 0.1, pInfinity = 0;
+let currentK = 1, x_true = 0, x_hat_p = 0, P_p = 0.1, pInfinity = 0, pUnstable = null;
 let cobwebMax = 15;
 
 let stairsX = [], stairsY = [];
@@ -531,7 +533,7 @@ function renderFrame(t) {
         { x: cStX, y: cStY, mode: 'lines', line: {color: '#0052cc', width: 1.5} },
         { x: dotX, y: dotY, mode: 'markers', marker: {color: '#ff5630', size: 8} },
         { x: dotX, y: dotX.length ? [-0.7] : [], mode: 'text',
-          text: dotX.length ? ['P\u209a(1)'] : [], textfont: {size: 11, color: '#ff5630'} }
+          text: dotX.length ? ['P\u209a(1)'] : [], textfont: {size: 11, color: '#ff5630'} },
     ], {
         title:  { text: 'Variance Convergence', font: {family: 'DINPro,sans-serif', size: 13} },
         xaxis:  { title: 'P\u209a(k)',   range: [0, cobwebMax], gridcolor: '#ebecf0', tickfont: {size: 11} },
@@ -565,7 +567,8 @@ function initSimulation() {
     const p = getParams();
     const firstPp = p.a * p.a * p.p0 + p.q;
     currentK = 1; x_true = Math.sqrt(Math.max(p.p0, 0)) * randn(); x_hat_p = 0; P_p = firstPp;
-    pInfinity = computePInfinity(p);
+    const fps = computeFixedPoints(p);
+    pInfinity = fps.stable; pUnstable = fps.unstable;
 
     stairsX = [firstPp]; stairsY = [0];
     timeData = []; estErrData = []; measErrData = [];
@@ -583,9 +586,11 @@ function initSimulation() {
     stepElapsed = 0; lastRafTime = null; smoothYRange = null;
 
 
-    document.getElementById('stat-k').innerText    = 0;
-    document.getElementById('stat-p').innerText    = firstPp.toFixed(3);
-    document.getElementById('stat-pinf').innerText = isFinite(pInfinity) ? pInfinity.toFixed(3) : '\u221e';
+    document.getElementById('stat-k').innerText = 0;
+    document.getElementById('stat-p').innerText = firstPp.toFixed(3);
+    let pinfText = isFinite(pInfinity) ? pInfinity.toFixed(3) : '∞';
+    if (pUnstable !== null) pinfText = '0 (unstable), ' + pinfText + ' (stable)';
+    document.getElementById('stat-pinf').innerText = pinfText;
 
     const cobwebTraces = [
         { x: [0, cobwebMax], y: [0, cobwebMax], mode: 'lines',
@@ -594,7 +599,7 @@ function initSimulation() {
         { x: [...stairsX], y: [...stairsY], mode: 'lines', line: {color: '#0052cc', width: 1.5} },
         { x: [stairsX[0]], y: [0], mode: 'markers', marker: {color: '#ff5630', size: 8} },
         { x: [stairsX[0]], y: [-0.7], mode: 'text',
-          text: ['P\u209a(1)'], textfont: {size: 11, color: '#ff5630'} }
+          text: ['P\u209a(1)'], textfont: {size: 11, color: '#ff5630'} },
     ];
     const cobwebLayout = {
         title:  { text: 'Variance Convergence', font: {family: 'DINPro,sans-serif', size: 13} },
