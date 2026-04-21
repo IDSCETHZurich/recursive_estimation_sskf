@@ -116,6 +116,7 @@
             width: 100%; accent-color: var(--primary); cursor: pointer;
         }
 
+        .sidebar-bottom { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
         .button-group { display: flex; gap: 8px; margin-top: auto; padding-top: 14px; }
         button {
             flex: 1; padding: 9px 6px; border: none; border-radius: 4px;
@@ -158,77 +159,167 @@
         .eq-step:first-child { margin-top: 2px; }
         .eq-line { display: flex; justify-content: center; }
         .eq-line .katex-display { margin: 0.05em 0; }
+
+        /* Use dynamic viewport height so mobile browser chrome doesn't clip */
+        @supports (height: 100dvh) {
+            body { height: 100dvh; }
+        }
+
+        /* ── Tablet portrait & small landscape (≤ 900 px) ─────────────────── */
+        @media (max-width: 900px) {
+            body {
+                flex-direction: column;
+                height: auto;
+                min-height: 100dvh;
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding: 10px;
+                gap: 10px;
+            }
+
+            #sidebar {
+                width: 100%;
+                flex: 0 0 auto;
+                height: auto;
+                padding: 10px 12px 8px;
+            }
+
+            /* Controls in a 3-column grid */
+            #controls-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 4px 14px;
+                align-items: start;
+            }
+            #controls-grid h3 {
+                grid-column: 1 / -1;
+                margin: 6px 0 2px;
+            }
+            .control-group { margin-bottom: 2px; }
+
+            /* Status + equations + buttons in a row */
+            .sidebar-bottom {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: 10px;
+                margin-top: 8px;
+            }
+            #status { margin-top: 0; flex: 0 0 auto; }
+            details.eq-section { flex: 1 1 auto; }
+            details.eq-section > summary { margin: 0; }
+            .button-group { margin-top: 0; padding-top: 0; flex: 0 0 auto; }
+
+            /* Plots fill remaining space side-by-side */
+            #main-content {
+                flex: 1 1 auto;
+                min-height: 340px;
+                height: auto;
+            }
+            .plot-container { height: 100%; }
+            #plot-cobweb-container { max-width: 44%; }
+
+            /* Touch-friendlier controls */
+            input[type="range"] { height: 28px; }
+            button { padding: 11px 6px; min-height: 44px; }
+        }
+
+        /* ── Phone portrait (≤ 550 px) ─────────────────────────────────────── */
+        @media (max-width: 550px) {
+            #controls-grid { grid-template-columns: repeat(2, 1fr); }
+
+            .sidebar-bottom { flex-direction: column; align-items: stretch; }
+            details.eq-section { display: none; } /* hide equations to save space */
+
+            #main-content {
+                flex-direction: column;
+                min-height: 560px;
+            }
+            #plot-cobweb-container {
+                max-width: 100%;
+                flex: 0 0 auto;
+                /* aspect-ratio keeps it square */
+            }
+            #plot-timeseries-container {
+                flex: 1 1 auto;
+                min-height: 260px;
+            }
+        }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
 
-    <h3>System Parameters</h3>
+    <div id="controls-grid">
+        <h3>System Parameters</h3>
 
-    <div class="control-group" id="cg-a">
-        <div class="label-row">
-            <span>Dynamics (<i>a</i>)</span>
-            <span class="val-display" id="val-a">0.95</span>
+        <div class="control-group" id="cg-a">
+            <div class="label-row">
+                <span>Dynamics (<i>a</i>)</span>
+                <span class="val-display" id="val-a">0.95</span>
+            </div>
+            <input type="range" id="a" min="0" max="1.5" step="0.01" value="0.95">
         </div>
-        <input type="range" id="a" min="0" max="1.5" step="0.01" value="0.95">
+
+        <div class="control-group" id="cg-h">
+            <div class="label-row">
+                <span>Observation (<i>h</i>)</span>
+                <span class="val-display" id="val-h">0.60</span>
+            </div>
+            <input type="range" id="h" min="0" max="2" step="0.01" value="0.6">
+        </div>
+
+        <div class="control-group" id="cg-q">
+            <div class="label-row">
+                <span>Process Noise (<i>q</i>)</span>
+                <span class="val-display" id="val-q">1.00</span>
+            </div>
+            <input type="range" id="q" min="0" max="3" step="0.05" value="1">
+        </div>
+
+        <div class="control-group" id="cg-r">
+            <div class="label-row">
+                <span>Measurement Noise (<i>r</i>)</span>
+                <span class="val-display" id="val-r">1.00</span>
+            </div>
+            <input type="range" id="r" min="0.05" max="5" step="0.05" value="1">
+        </div>
+
+        <h3>Initial Conditions</h3>
+        <div class="control-group" id="cg-p0">
+            <div class="label-row">
+                <span>Init. Variance <i>P<sub>0</sub></i></span>
+                <span class="val-display" id="val-p0">0.10</span>
+            </div>
+            <input type="range" id="p0" min="0" max="10" step="0.1" value="0.1">
+        </div>
     </div>
 
-    <div class="control-group" id="cg-h">
-        <div class="label-row">
-            <span>Observation (<i>h</i>)</span>
-            <span class="val-display" id="val-h">0.60</span>
+    <div class="sidebar-bottom">
+        <div id="status">
+            Step <i>k</i>: <strong id="stat-k">0</strong> &nbsp;
+            <i>P<sub>p</sub></i>(<i>k</i>): <strong id="stat-p" style="color:var(--primary)">0.00</strong><br>
+            <i>P</i><sub>&infin;</sub>: <strong id="stat-pinf" style="color:var(--accent)">—</strong>
         </div>
-        <input type="range" id="h" min="0" max="2" step="0.01" value="0.6">
-    </div>
 
-    <div class="control-group" id="cg-q">
-        <div class="label-row">
-            <span>Process Noise (<i>q</i>)</span>
-            <span class="val-display" id="val-q">1.00</span>
+        <details class="eq-section" open>
+            <summary>Model</summary>
+            <div class="eq-box">
+                <div class="eq-step">Process &amp; Measurement</div>
+                <div class="eq-line" id="eq-proc"></div>
+                <div class="eq-line" id="eq-meas"></div>
+
+                <div class="eq-step">Variance Recursion</div>
+                <div class="eq-line" id="eq-ricc"></div>
+            </div>
+        </details>
+
+        <div class="button-group">
+            <button id="btn-play">Play</button>
+            <button id="btn-step">Step</button>
+            <button id="btn-reset">Reset</button>
         </div>
-        <input type="range" id="q" min="0" max="3" step="0.05" value="1">
-    </div>
-
-    <div class="control-group" id="cg-r">
-        <div class="label-row">
-            <span>Measurement Noise (<i>r</i>)</span>
-            <span class="val-display" id="val-r">1.00</span>
-        </div>
-        <input type="range" id="r" min="0.05" max="5" step="0.05" value="1">
-    </div>
-
-    <h3>Initial Conditions</h3>
-    <div class="control-group" id="cg-p0">
-        <div class="label-row">
-            <span>Init. Variance <i>P<sub>0</sub></i></span>
-            <span class="val-display" id="val-p0">0.10</span>
-        </div>
-        <input type="range" id="p0" min="0" max="10" step="0.1" value="0.1">
-    </div>
-
-    <div id="status">
-        Step <i>k</i>: <strong id="stat-k">0</strong> &nbsp;
-        <i>P<sub>p</sub></i>(<i>k</i>): <strong id="stat-p" style="color:var(--primary)">0.00</strong><br>
-        <i>P</i><sub>&infin;</sub>: <strong id="stat-pinf" style="color:var(--accent)">—</strong>
-    </div>
-
-    <details class="eq-section" open>
-        <summary>Model</summary>
-        <div class="eq-box">
-            <div class="eq-step">Process &amp; Measurement</div>
-            <div class="eq-line" id="eq-proc"></div>
-            <div class="eq-line" id="eq-meas"></div>
-
-            <div class="eq-step">Variance Recursion</div>
-            <div class="eq-line" id="eq-ricc"></div>
-        </div>
-    </details>
-
-    <div class="button-group">
-        <button id="btn-play">Play</button>
-        <button id="btn-step">Step</button>
-        <button id="btn-reset">Reset</button>
     </div>
 </div>
 
