@@ -449,6 +449,11 @@ function commitNext() {
     x_true  = np.x_true_next;
     x_hat_p = np.x_hat_p_next;
     P_p     = np.P_p_next;
+    // Shift for when x_true would cause integer overflow
+    if (Math.abs(x_true) > 1e6) {
+        x_hat_p -= x_true;
+        x_true = 0;
+    }
     currentK++;
     document.getElementById('stat-k').innerText = currentK - 1;
     document.getElementById('stat-p').innerText = isFinite(np.stPfrom) ? np.stPfrom.toFixed(3) : '\u221e';
