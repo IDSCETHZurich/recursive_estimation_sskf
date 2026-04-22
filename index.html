@@ -372,6 +372,7 @@ function getParams() {
 function computeFixedPoints(p) {
     const { a, h, q, r } = p;
     if (h === 0) {
+        if (q === 0) return { stable: 0, unstable: null };
         const stable = Math.abs(a) < 1 ? q / (1 - a * a) : Infinity;
         return { stable, unstable: null };
     }
