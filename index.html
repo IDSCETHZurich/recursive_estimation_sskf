@@ -372,7 +372,10 @@ function getParams() {
 function computeFixedPoints(p) {
     const { a, h, q, r } = p;
     if (h === 0) {
-        if (q === 0) return { stable: 0, unstable: null };
+        if (q === 0) {
+            // P(k+1)=a²P(k); P=0 is the only fixed point, unstable when |a|>1
+            return { stable: 0, unstable: null, stableIsUnstable: Math.abs(a) > 1 };
+        }
         const stable = Math.abs(a) < 1 ? q / (1 - a * a) : Infinity;
         return { stable, unstable: null };
     }
@@ -595,7 +598,8 @@ function initSimulation() {
     document.getElementById('stat-k').innerText = 0;
     document.getElementById('stat-p').innerText = firstPp.toFixed(3);
     let pinfText = isFinite(pInfinity) ? pInfinity.toFixed(3) : '∞';
-    if (pUnstable !== null) pinfText = '0 (unstable), ' + pinfText + ' (stable)';
+    if (fps.stableIsUnstable) pinfText += ' (unstable)';
+    else if (pUnstable !== null) pinfText = '0 (unstable), ' + pinfText + ' (stable)';
     document.getElementById('stat-pinf').innerText = pinfText;
 
     const cobwebTraces = [
